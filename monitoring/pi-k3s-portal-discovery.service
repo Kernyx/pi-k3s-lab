@@ -1,0 +1,14 @@
+[Unit]
+Description=pi-k3s-lab ready portal endpoints for Prometheus
+After=k3s.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/pi-k3s-lab/monitoring/discover-portal.py
+TimeoutStartSec=20
+UMask=0022
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/vaultwarden-restore-drill/monitoring/prometheus/pi-k3s-lab

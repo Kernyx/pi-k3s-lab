@@ -1,0 +1,8 @@
+scrape_configs:
+  - job_name: home-portal
+    scrape_interval: 15s
+    scrape_timeout: 3s
+    sample_limit: 250
+    file_sd_configs:
+      - files: [/etc/prometheus/pi-k3s-lab/targets.json]
+        refresh_interval: 15s

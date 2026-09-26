@@ -15,6 +15,73 @@ from urllib.parse import urlsplit
 ASSETS = Path(__file__).parent
 
 
+class Metrics:
+    """Bounded-label, thread-safe Prometheus text counters and classic histogram."""
+
+    bounds = (0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5)
+    routes = {"/", "/style.css", "/app.js", "/api/config", "/api/info"}
+    excluded = {"/healthz", "/readyz", "/metrics"}
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.requests = {}
+        self.buckets = [0] * len(self.bounds)
+        self.count = 0
+        self.total = 0.0
+
+    def observe(self, path, method, status, duration):
+        if path in self.excluded:
+            return
+        route = path if path in self.routes else "other"
+        method = method if method in {"GET", "HEAD"} else "other"
+        status = str(status) if status in {200, 404, 500, 503} else "other"
+        with self.lock:
+            key = (route, method, status)
+            self.requests[key] = self.requests.get(key, 0) + 1
+            self.count += 1
+            self.total += duration
+            for i, bound in enumerate(self.bounds):
+                self.buckets[i] += int(duration <= bound)
+
+    @staticmethod
+    def escape(value):
+        return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+    def render(self, server):
+        with self.lock:
+            requests = sorted(self.requests.items())
+            buckets, count, total = self.buckets[:], self.count, self.total
+        lines = ["# HELP portal_http_requests_total Business HTTP requests; excludes probes and metrics.",
+                 "# TYPE portal_http_requests_total counter"]
+        for (route, method, status), value in requests:
+            lines.append(f'portal_http_requests_total{{route="{route}",method="{method}",status="{status}"}} {value}')
+        lines += ["# HELP portal_http_request_duration_seconds Business request handling including socket write.",
+                  "# TYPE portal_http_request_duration_seconds histogram"]
+        for bound, value in zip(self.bounds, buckets):
+            lines.append(f'portal_http_request_duration_seconds_bucket{{le="{bound}"}} {value}')
+        lines += [f'portal_http_request_duration_seconds_bucket{{le="+Inf"}} {count}',
+                  f"portal_http_request_duration_seconds_count {count}",
+                  f"portal_http_request_duration_seconds_sum {total:.9f}"]
+        for name, help_text, value in [
+            ("portal_ready", "Configuration readiness, not overall service availability.", int(server.config is not None)),
+            ("portal_uptime_seconds", "Monotonic process uptime.", time.monotonic() - server.started),
+            ("portal_process_cpu_seconds_total", "Process user and system CPU seconds.", time.process_time()),
+        ]:
+            kind = "counter" if name.endswith("_total") else "gauge"
+            lines += [f"# HELP {name} {help_text}", f"# TYPE {name} {kind}", f"{name} {value}"]
+        # Linux current resident memory, not resource.ru_maxrss (a high-water mark).
+        try:
+            rss = next(line for line in Path("/proc/self/status").read_text().splitlines() if line.startswith("VmRSS:"))
+            lines += ["# HELP portal_process_resident_memory_bytes Current Linux process resident memory.",
+                      "# TYPE portal_process_resident_memory_bytes gauge",
+                      f"portal_process_resident_memory_bytes {int(rss.split()[1]) * 1024}"]
+        except (OSError, StopIteration):
+            pass
+        lines += ["# HELP portal_build_info Running application revision.", "# TYPE portal_build_info gauge",
+                  f'portal_build_info{{version="{self.escape(server.version)}"}} 1']
+        return ("\n".join(lines) + "\n").encode()
+
+
 def load_config(path):
     if path.stat().st_size > 16384:
         raise ValueError("Configuration exceeds 16 KiB")
@@ -54,6 +121,7 @@ class PortalServer(ThreadingHTTPServer):
         self.version = version
         self.instance = instance
         self.started = time.monotonic()
+        self.metrics = Metrics()
         try:
             self.config = load_config(config_path)
         except (OSError, ValueError):
@@ -71,15 +139,27 @@ class PortalHandler(BaseHTTPRequestHandler):
         self.connection.settimeout(5)
 
     def do_GET(self):
-        self.respond()
+        self.measured_response()
 
     def do_HEAD(self):
-        self.respond(head=True)
+        self.measured_response(head=True)
+
+    def measured_response(self, head=False):
+        started = time.monotonic()
+        self.response_status = 500
+        try:
+            self.respond(head)
+        finally:
+            self.server.metrics.observe(urlsplit(self.path).path, self.command,
+                                        self.response_status, time.monotonic() - started)
 
     def respond(self, head=False):
         path = urlsplit(self.path).path
         status, content_type = 200, "application/json; charset=utf-8"
-        if path == "/healthz":
+        if path == "/metrics":
+            body = self.server.metrics.render(self.server)
+            content_type = "text/plain; version=0.0.4; charset=utf-8"
+        elif path == "/healthz":
             body = {"status": "alive"}
         elif path == "/readyz":
             status = 200 if self.server.config is not None else 503
@@ -102,6 +182,7 @@ class PortalHandler(BaseHTTPRequestHandler):
         if not isinstance(body, bytes):
             body = json.dumps(body, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
+        self.response_status = status
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
@@ -114,7 +195,7 @@ class PortalHandler(BaseHTTPRequestHandler):
 
     def log_request(self, code="-", size="-"):
         path = urlsplit(self.path).path
-        if path not in ("/healthz", "/readyz"):
+        if path not in ("/healthz", "/readyz", "/metrics"):
             print(json.dumps({"time": datetime.now(timezone.utc).isoformat(), "path": path,
                               "method": self.command, "status": code}), flush=True)
 

@@ -1,6 +1,6 @@
-.PHONY: prepare up check smoke deploy release drill rollback app-check configure open test lint
+.PHONY: prepare up check smoke deploy release drill rollback app-check configure open observe load test lint
 
-prepare up check smoke deploy release drill rollback app-check configure open:
+prepare up check smoke deploy release drill rollback app-check configure open observe load:
 	SSH_HOST="$(SSH_HOST)" LINKS_FILE="$(LINKS_FILE)" RUN_ID="$(RUN_ID)" RELEASE_FILE="$(RELEASE_FILE)" SNAPSHOT_DIR="$(SNAPSHOT_DIR)" bash scripts/remote.sh $@
 
 test:

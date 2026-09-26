@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-action=${1:?Expected prepare, up, check, smoke, deploy, release, drill, rollback, app-check, configure, or open}
+action=${1:?Expected a Makefile action}
 : "${SSH_HOST:?Set SSH_HOST to your own SSH alias or user@host}"
 [[ $SSH_HOST =~ ^[a-zA-Z0-9][a-zA-Z0-9_.@-]*$ ]] || { printf 'Invalid SSH_HOST\n' >&2; exit 1; }
-case "$action" in prepare|up|check|smoke|deploy|release|drill|rollback|app-check|configure|open) ;; *) printf 'Unknown action\n' >&2; exit 1 ;; esac
+case "$action" in prepare|up|check|smoke|deploy|release|drill|rollback|app-check|configure|open|observe|load) ;; *) printf 'Unknown action\n' >&2; exit 1 ;; esac
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 ssh_options=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
 if [[ $action == open ]]; then
@@ -36,7 +36,7 @@ remote_dir=$(ssh "${ssh_options[@]}" "$SSH_HOST" 'mktemp -d /tmp/pi-k3s-lab.XXXX
 [[ $remote_dir =~ ^/tmp/pi-k3s-lab\.[a-zA-Z0-9]+$ ]] || { printf 'Unexpected staging path\n' >&2; exit 1; }
 # A small staging directory is retained for diagnosis; it contains no credentials.
 scp "${ssh_options[@]}" -r "$project_dir/scripts" "$project_dir/config" "$project_dir/app" \
-    "$project_dir/k8s" "$project_dir/Dockerfile" "$project_dir/.dockerignore" "$SSH_HOST:$remote_dir/"
+    "$project_dir/k8s" "$project_dir/monitoring" "$project_dir/Dockerfile" "$project_dir/.dockerignore" "$SSH_HOST:$remote_dir/"
 if [[ $action == release ]]; then
     scp "${ssh_options[@]}" "$RELEASE_FILE" "$SSH_HOST:$remote_dir/release.json"
     # shellcheck disable=SC2029
@@ -65,4 +65,6 @@ case "$action" in
     drill) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n python3 '$remote_dir/scripts/rollout-drill.py'" ;;
     rollback) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n python3 '$remote_dir/scripts/app_state.py' '$SNAPSHOT_DIR'" ;;
     app-check) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n bash '$remote_dir/scripts/check-app.sh'" ;;
+    observe) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n python3 '$remote_dir/scripts/observe.py'" ;;
+    load) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n python3 '$remote_dir/scripts/load-portal.py'" ;;
 esac

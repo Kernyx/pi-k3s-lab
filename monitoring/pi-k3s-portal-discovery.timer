@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh pi-k3s-lab portal metrics endpoints
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+AccuracySec=1s
+Unit=pi-k3s-portal-discovery.service
+
+[Install]
+WantedBy=timers.target
