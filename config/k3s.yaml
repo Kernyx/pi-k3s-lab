@@ -1,0 +1,11 @@
+# One server: the default datastore is SQLite, not embedded etcd.
+node-name: pi-lab
+write-kubeconfig-mode: "0600"
+secrets-encryption: true
+flannel-iface: eth0
+# Keep existing host HTTP services independent from Kubernetes.
+disable:
+  - traefik
+  - servicelb
+kube-apiserver-arg:
+  - anonymous-auth=false

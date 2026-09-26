@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.cache/
+__pycache__/
+*.pyc
+*.kubeconfig
+kubeconfig*
+secrets/
+artifacts/

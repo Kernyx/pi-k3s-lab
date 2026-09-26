@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: smoke-
+  namespace: pi-lab-checks
+  labels:
+    app.kubernetes.io/part-of: pi-k3s-lab
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: check
+          # BusyBox 1.37.0 multi-arch manifest, verified on 2026-09-26.
+          image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+          command:
+            - sh
+            - -ec
+            - |
+              nslookup kubernetes.default.svc.cluster.local.
+              nslookup example.com.
+              test "$(cat /sys/fs/cgroup/memory.max)" = 33554432
+              test "$(cat /sys/fs/cgroup/memory.swap.max)" = 0
+              wget -T 20 -q -O /dev/null http://example.com/
+              echo "PASS: cluster DNS, external DNS, HTTP egress, 32 MiB limit, NoSwap"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
