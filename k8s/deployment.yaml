@@ -34,7 +34,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: portal
-          # The deploy script replaces this with its content-addressed local image.
+          # The deploy script renders the local bootstrap tag or a GHCR digest.
           image: docker.io/pi-k3s-lab/home-portal:unset
           imagePullPolicy: Never
           ports:
