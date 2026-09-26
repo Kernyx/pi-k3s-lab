@@ -45,16 +45,19 @@ else
     fi
 fi
 
-backup_dir=$(mktemp -d /var/lib/pi-k3s-lab/app-before-deploy.XXXXXXXX)
-chmod 0700 "$backup_dir"
-kubectl -n homelab get deployment home-portal -o yaml > "$backup_dir/deployment.yaml" 2>/dev/null || true
-kubectl -n homelab get service home-portal -o yaml > "$backup_dir/service.yaml" 2>/dev/null || true
-install -m 0600 "$config_file" "$backup_dir/links.json"
-if [[ -f $active_release ]]; then
-    install -m 0600 "$active_release" "$backup_dir/release.json"
+if kubectl -n homelab get deployment home-portal >/dev/null 2>&1; then
+    snapshot_output=$(python3 "$project_dir/scripts/app_state.py" --snapshot-held-lock)
+    printf '%s\n' "$snapshot_output"
+    backup_dir=${snapshot_output#Verified private snapshot: }
+    [[ $backup_dir =~ ^/var/lib/pi-k3s-lab/app-snapshot\.[a-zA-Z0-9_]+$ ]] || exit 1
+else
+    # Initial bootstrap has no previous Deployment/Service to restore.
+    backup_dir=$(mktemp -d /var/lib/pi-k3s-lab/app-before-deploy.XXXXXXXX)
+    chmod 0700 "$backup_dir"
+    install -m 0600 "$config_file" "$backup_dir/links.json"
+    sha256sum "$backup_dir"/* > "$backup_dir/SHA256SUMS"
+    sha256sum --check "$backup_dir/SHA256SUMS"
 fi
-sha256sum "$backup_dir"/* > "$backup_dir/SHA256SUMS"
-sha256sum --check "$backup_dir/SHA256SUMS"
 printf 'Verified pre-deployment snapshot: %s\n' "$backup_dir"
 
 kubectl apply -f "$project_dir/k8s/namespace.yaml"

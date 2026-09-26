@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-action=${1:?Expected prepare, up, check, smoke, deploy, release, app-check, configure, or open}
+action=${1:?Expected prepare, up, check, smoke, deploy, release, drill, rollback, app-check, configure, or open}
 : "${SSH_HOST:?Set SSH_HOST to your own SSH alias or user@host}"
 [[ $SSH_HOST =~ ^[a-zA-Z0-9][a-zA-Z0-9_.@-]*$ ]] || { printf 'Invalid SSH_HOST\n' >&2; exit 1; }
-case "$action" in prepare|up|check|smoke|deploy|release|app-check|configure|open) ;; *) printf 'Unknown action\n' >&2; exit 1 ;; esac
+case "$action" in prepare|up|check|smoke|deploy|release|drill|rollback|app-check|configure|open) ;; *) printf 'Unknown action\n' >&2; exit 1 ;; esac
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 ssh_options=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
 if [[ $action == open ]]; then
@@ -12,6 +12,10 @@ if [[ $action == open ]]; then
     exec ssh -tt "${ssh_options[@]}" -o ExitOnForwardFailure=yes \
         -L 127.0.0.1:18080:127.0.0.1:18080 -L 127.0.0.1:13000:127.0.0.1:3000 "$SSH_HOST" \
         'sudo -n k3s kubectl -n homelab port-forward --address=127.0.0.1 service/home-portal 18080:80'
+fi
+if [[ $action == rollback ]]; then
+    : "${SNAPSHOT_DIR:?Set SNAPSHOT_DIR to a verified private app-snapshot directory on the Pi}"
+    [[ $SNAPSHOT_DIR =~ ^/var/lib/pi-k3s-lab/app-snapshot\.[a-zA-Z0-9_]+$ ]] || { printf 'Invalid snapshot path\n' >&2; exit 1; }
 fi
 if [[ $action == release ]]; then
     if [[ -n ${RUN_ID:-} ]]; then
@@ -58,5 +62,7 @@ case "$action" in
     check) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n bash '$remote_dir/scripts/check.sh'" ;;
     smoke) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n bash '$remote_dir/scripts/smoke.sh'" ;;
     deploy) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n bash '$remote_dir/scripts/deploy-app.sh'" ;;
+    drill) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n python3 '$remote_dir/scripts/rollout-drill.py'" ;;
+    rollback) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n python3 '$remote_dir/scripts/app_state.py' '$SNAPSHOT_DIR'" ;;
     app-check) ssh "${ssh_options[@]}" "$SSH_HOST" "sudo -n bash '$remote_dir/scripts/check-app.sh'" ;;
 esac
