@@ -88,6 +88,16 @@ class DashboardAndLoadTest(unittest.TestCase):
 
 
 class ObserveBackupTest(unittest.TestCase):
+    def test_external_scrape_job_is_not_in_main_config_api(self):
+        config = 'scrape_config_files:\n- /etc/prometheus/pi-k3s-lab/home-portal.yml\nscrape_configs:\n- job_name: node\n'
+        self.assertNotIn('job_name: home-portal', config)
+        self.assertTrue(observer.reload_active(config, ['node', 'home-portal'], True))
+        self.assertFalse(observer.reload_active(config, ['node'], True))
+
+    def test_undo_checks_pool_and_include_disappearance(self):
+        self.assertTrue(observer.reload_active('scrape_configs: []', ['node'], False))
+        self.assertFalse(observer.reload_active('scrape_configs: []', ['node', 'home-portal'], False))
+
     def test_private_backup_inventory_and_tamper_detection(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)

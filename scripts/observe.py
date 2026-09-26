@@ -88,7 +88,7 @@ def restore(directory):
     manifest = verify(directory)
     if TIMER.exists():
         run('systemctl', 'disable', '--now', UNIT)
-    if subprocess.run(['systemctl', 'is-active', '--quiet', SERVICE.name]).returncode == 0:
+    if SERVICE.exists():
         run('systemctl', 'stop', SERVICE.name)
     # Exact allowlisted files, never a recursive removal; backups remain intact.
     for path in FILES:
@@ -105,15 +105,24 @@ def restore(directory):
         run('systemctl', 'enable', '--now', UNIT)
     run('docker', 'exec', PROMETHEUS, 'promtool', 'check', 'config', '/etc/prometheus/prometheus.yml')
     run('docker', 'kill', '--signal=HUP', PROMETHEUS)
-    wait_reload('home-portal' in (directory / manifest['files'][str(PROM)]['file']).read_text())
+    wait_reload(INCLUDE in (directory / manifest['files'][str(PROM)]['file']).read_text())
     print('Restored monitoring files; existing Vaultwarden jobs preserved.', flush=True)
+
+
+def reload_active(config, pools, expect_portal):
+    # /status/config retains the include, not the jobs loaded from that file.
+    included = '/etc/prometheus/pi-k3s-lab/home-portal.yml' in config
+    pool_exists = 'home-portal' in pools
+    return included == expect_portal and pool_exists == expect_portal
 
 
 def wait_reload(expect_portal):
     for _ in range(20):
         with urllib.request.urlopen('http://127.0.0.1:9090/api/v1/status/config', timeout=3) as response:
             active = json.load(response)['data']['yaml']
-        if ('job_name: home-portal' in active) == expect_portal:
+        with urllib.request.urlopen('http://127.0.0.1:9090/api/v1/scrape_pools', timeout=3) as response:
+            pools = json.load(response)['data']['scrapePools']
+        if reload_active(active, pools, expect_portal):
             return
         time.sleep(0.5)
     raise RuntimeError('Prometheus did not activate the intended scrape configuration')
