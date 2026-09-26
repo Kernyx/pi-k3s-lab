@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Домашняя лаборатория</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="На главную"><span class="brand-mark">h</span><span id="brand-title">Домашняя лаборатория</span></a>
+      <span class="topbar-note">HOME / LAB</span>
+    </header>
+    <main>
+      <section class="intro">
+        <div class="eyebrow"><span class="dot"></span> ЛИЧНОЕ ПРОСТРАНСТВО</div>
+        <h1>Всё нужное<br><span>под рукой.</span></h1>
+        <p>Сервисы, инструменты и документация твоей домашней лаборатории.</p>
+      </section>
+      <section aria-labelledby="services-heading">
+        <div class="section-bar">
+          <div><h2 id="services-heading">Быстрый доступ</h2><span id="count" class="muted" aria-live="polite">Загрузка ссылок…</span></div>
+          <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Найти сервис" aria-label="Найти сервис"></label>
+        </div>
+        <div id="links" class="cards"></div>
+        <p id="message" class="message" role="status" hidden></p>
+      </section>
+    </main>
+    <footer><span>Собрано для домашней лаборатории.</span><span id="version">Home portal</span></footer>
+  </div>
+</body>
+</html>

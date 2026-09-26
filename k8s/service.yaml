@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: home-portal
+  namespace: homelab
+  labels:
+    app.kubernetes.io/part-of: pi-k3s-lab
+spec:
+  type: ClusterIP
+  selector:
+    app: home-portal
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

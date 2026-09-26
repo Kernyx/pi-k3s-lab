@@ -1,7 +1,7 @@
-.PHONY: prepare up check smoke test lint
+.PHONY: prepare up check smoke deploy app-check configure open test lint
 
-prepare up check smoke:
-	SSH_HOST="$(SSH_HOST)" bash scripts/remote.sh $@
+prepare up check smoke deploy app-check configure open:
+	SSH_HOST="$(SSH_HOST)" LINKS_FILE="$(LINKS_FILE)" bash scripts/remote.sh $@
 
 test:
 	python3 -m unittest discover -s tests -v

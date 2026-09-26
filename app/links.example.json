@@ -1,0 +1,8 @@
+{
+  "title": "Домашняя лаборатория",
+  "links": [
+    {"name": "Pi k3s lab", "url": "https://github.com/Kernyx/pi-k3s-lab", "description": "Код, этапы проекта и проверенные результаты."},
+    {"name": "Kubernetes", "url": "https://kubernetes.io/docs/home/", "description": "Deployment, Service, probes и управление контейнерами."},
+    {"name": "k3s", "url": "https://docs.k3s.io/", "description": "Установка и обслуживание домашнего кластера."}
+  ]
+}
