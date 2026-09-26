@@ -8,7 +8,8 @@ project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 ssh_options=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
 if [[ $action == open ]]; then
     printf 'Open http://127.0.0.1:18080 (Grafana tunnel: http://127.0.0.1:13000). Ctrl+C closes the tunnels.\n'
-    exec ssh "${ssh_options[@]}" -o ExitOnForwardFailure=yes \
+    # A remote PTY makes Ctrl+C / SSH disconnect terminate sudo's port-forward too.
+    exec ssh -tt "${ssh_options[@]}" -o ExitOnForwardFailure=yes \
         -L 127.0.0.1:18080:127.0.0.1:18080 -L 127.0.0.1:13000:127.0.0.1:3000 "$SSH_HOST" \
         'sudo -n k3s kubectl -n homelab port-forward --address=127.0.0.1 service/home-portal 18080:80'
 fi

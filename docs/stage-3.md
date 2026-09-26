@@ -31,9 +31,10 @@ they do not silently replace it with a local bootstrap build.
 
 ## Privacy and honest limitations
 
-- The first GHCR publication is private by default. Its package visibility must
-  be changed to public once, so the Pi can pull without registry credentials.
-  The package contains public code and example documentation links only.
+- GitHub documents private visibility as the default for first publication.
+  Inspect the actual package: this run showed Public immediately and anonymous
+  pull succeeded, so no visibility setting was changed. If private in another
+  account, its owner must make this public-code-only package public once.
 - Private link configuration remains outside Git, image layers and CI artifacts.
   The runner receives neither SSH access to the home network nor kubeconfig.
 - Delivery has an explicit operator approval boundary: publication is automatic,
@@ -50,8 +51,30 @@ they do not silently replace it with a local bootstrap build.
 
 ## Verification
 
-Implementation checks and the actual registry-to-Pi result are recorded after
-the first successful workflow and controlled installation.
+Live snapshot: 2026-09-27, first registry release, commit
+`dd554fe1177ef8d8bbed0331372e3af96f1f9b7c`.
+
+| Check | Observed result |
+| --- | --- |
+| Tests and Bash lint | 18 unit tests and ShellCheck passed locally/on Pi/in Actions |
+| CI | [Run 36267956220](https://github.com/Kernyx/pi-k3s-lab/actions/runs/36267956220): both jobs successful |
+| ARM64 publication | OCI index `sha256:73a3248246340db9040a0e69f72ec136978a629fe8037b17135d40b7bc9feb67` |
+| ARM64 child manifest | `sha256:71e040212ade0fa5df0994f7ba269fa942151d32328d8e1b08d37644ce912b5f` |
+| Download/provenance checks | Anonymous `crictl pull`; Linux/ARM64, digest, labels and APP_VERSION matched |
+| Deployment | 2/2 Ready, zero restarts, `IfNotPresent`, digest pinned in spec and runtime imageID |
+| Application | Seven HTTP routes through Service; both pod IPs returned the full release commit |
+| Idempotence | Integrated `make up`: same two pod UIDs, unchanged resources, k3s original start unchanged |
+| Private configuration | Original SHA-256 and immutable ConfigMap remained unchanged |
+| Adjacent services | All nine Docker/Podman containers remained up; news aggregator, feed reader and Grafana HTTP 200 |
+| Memory snapshot | Portal pods 16/17 MiB, approximately 1m CPU each without load |
+| Tunnel lifecycle | Portal + Grafana HTTP 200; Ctrl+C freed remote/local ports; reopening succeeded |
+
+The pre-release snapshot passed SHA-256 verification on Pi and after copying to
+private off-Pi storage. The public release descriptor was also retained outside
+the repository. This is a successful delivery/idempotence test, not an outage
+benchmark or the intentionally failed-release/rollback drill of stage 4.
+The tunnel incident and fix are recorded in
+[postmortem 002](postmortems/002-orphaned-port-forward.md).
 
 ## Interview question
 
