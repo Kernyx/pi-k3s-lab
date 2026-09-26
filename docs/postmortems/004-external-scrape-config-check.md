@@ -26,6 +26,12 @@ Check both the active include in `/status/config` and the `home-portal` pool in
 Regression tests cover the external-file response and removal of the pool on
 undo. A valid syntax check alone does not establish successful ingestion.
 
+After the fix, both portal targets became `up` alongside the three existing
+jobs. Explicit undo restored the original config hash without container restart;
+reinstallation succeeded. Another registry rollout changed both pod addresses,
+and discovery picked them up automatically. All eight dashboard queries returned
+data and the bounded 1950-request application test completed without errors.
+
 ## Limits
 
 This was a real implementation failure, not a simulated outage. It demonstrated
